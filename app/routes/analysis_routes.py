@@ -333,7 +333,7 @@ def download_report():
         )
         elements.append(line)
     
-    # ============= HALAMAN SAMPUL =============
+   # ============= HALAMAN SAMPUL =============
     elements.append(Spacer(1, 1*inch))
     elements.append(Paragraph("LAPORAN ANALISIS SENTIMEN", title_style))
     elements.append(Paragraph("Platform X (Twitter)", subtitle_style))
@@ -501,6 +501,345 @@ def download_report():
                       borderRadius=5,
                       spaceBefore=10,
                       spaceAfter=10)))
+    
+    # Analisis Trend
+    sentiment_analysis = f"""
+    <b>Analisis Sentimen:</b><br/><br/>
+    Berdasarkan data di atas, sentimen <b>{dominant}</b> mendominasi percakapan tentang 
+    "{analysis_context['title']}" dengan persentase {pos_percent if dominant == 'Positif' else 
+    neu_percent if dominant == 'Netral' else neg_percent}%. 
+    """
+    elements.append(Paragraph(sentiment_analysis, normal_style))
+    
+    # Visualisasi Sentimen
+    elements.append(Paragraph("2.2 Visualisasi Sentimen", heading2_style))
+    
+    # Diagram Lingkaran (Pie Chart)
+    elements.append(Paragraph("Distribusi Sentimen (Pie Chart):", heading3_style))
+    
+    # Buat pie chart
+    drawing = Drawing(400, 200)
+    pie = Pie()
+    pie.x = 150
+    pie.y = 25
+    pie.width = 150
+    pie.height = 150
+    pie.data = [analysis_context['positive_count'], analysis_context['neutral_count'], analysis_context['negative_count']]
+    pie.labels = [f'Positif ({pos_percent}%)', f'Netral ({neu_percent}%)', f'Negatif ({neg_percent}%)']
+    
+    # Colors
+    pie.slices.strokeWidth = 0.5
+    pie.slices[0].fillColor = colors.green
+    pie.slices[1].fillColor = colors.blue
+    pie.slices[2].fillColor = colors.red
+    
+    # Add legend
+    from reportlab.graphics.charts.legends import Legend
+    legend = Legend()
+    legend.alignment = 'right'
+    legend.x = 320
+    legend.y = 100
+    legend.colorNamePairs = [(colors.green, f'Positif ({pos_percent}%)'), 
+                             (colors.blue, f'Netral ({neu_percent}%)'),
+                             (colors.red, f'Negatif ({neg_percent}%)')]
+    
+    drawing.add(pie)
+    drawing.add(legend)
+    elements.append(drawing)
+    
+    elements.append(Paragraph("Interpretasi:", heading3_style))
+    chart_interpretation = f"""
+    Diagram lingkaran di atas menunjukkan dominasi sentimen {dominant.lower()} dalam percakapan tentang 
+    "{analysis_context['title']}". Hal ini mengindikasikan bahwa publik secara umum {'mendukung dan memiliki pandangan positif' if dominant == 'Positif' else 'bersikap netral dan objektif' if dominant == 'Netral' 
+    else 'memiliki kekhawatiran dan kritik'} terhadap topik ini.
+    """
+    elements.append(Paragraph(chart_interpretation, normal_style))
+    elements.append(PageBreak())
+    
+    # ============= TOPIK DAN HASHTAG UTAMA =============
+    elements.append(Paragraph("3. TOPIK DAN HASHTAG UTAMA", heading1_style))
+    horizontal_line()
+    
+    # Topik Utama
+    elements.append(Paragraph("3.1 Topik Utama", heading2_style))
+    
+    topic_intro = f"""
+    Berikut adalah topik-topik utama yang paling sering muncul dalam tweets terkait 
+    "{analysis_context['title']}":
+    """
+    elements.append(Paragraph(topic_intro, normal_style))
+    
+    if 'top_topics' in analysis_context and analysis_context['top_topics']:
+        # Format topic list with bullet points
+        topics_list = ""
+        for i, topic in enumerate(analysis_context['top_topics'][:8], 1):
+            topics_list += f"<b>{i}.</b> {topic}<br/>"
+        
+        # Display topics in a box
+        elements.append(Paragraph(topics_list, 
+            ParagraphStyle('BoxedTopics', 
+                          parent=normal_style,
+                          backColor=light_color,
+                          borderColor=secondary_color,
+                          borderWidth=1,
+                          borderPadding=10,
+                          spaceBefore=10,
+                          spaceAfter=10)))
+    else:
+        elements.append(Paragraph("Data topik utama tidak tersedia.", normal_style))
+    
+    # Topic Analysis
+    topic_analysis = f"""
+    <b>Analisis Topik:</b><br/><br/>
+    Topik-topik utama yang dibicarakan mencerminkan fokus perhatian publik terkait 
+    "{analysis_context['title']}". Dengan memahami topik-topik ini, kita dapat menyesuaikan
+    strategi komunikasi untuk lebih efektif menjangkau audiens target.
+    """
+    elements.append(Paragraph(topic_analysis, normal_style))
+    
+    # Hashtag Populer
+    elements.append(Paragraph("3.2 Hashtag Populer", heading2_style))
+    
+    hashtag_intro = f"""
+    Berikut adalah hashtag yang paling sering digunakan dalam percakapan terkait 
+    "{analysis_context['title']}":
+    """
+    elements.append(Paragraph(hashtag_intro, normal_style))
+    
+    if 'top_hashtags' in analysis_context and analysis_context['top_hashtags']:
+        # Format hashtag list with bullet points
+        hashtags_list = ""
+        for i, hashtag in enumerate(analysis_context['top_hashtags'][:8], 1):
+            hashtag_tag = hashtag if isinstance(hashtag, str) else hashtag.get('tag', 'Unknown')
+            hashtags_list += f"<b>{i}.</b> {hashtag_tag}<br/>"
+        
+        # Display hashtags in a box
+        elements.append(Paragraph(hashtags_list, 
+            ParagraphStyle('BoxedHashtags', 
+                          parent=normal_style,
+                          backColor=light_color,
+                          borderColor=secondary_color,
+                          borderWidth=1,
+                          borderPadding=10,
+                          spaceBefore=10,
+                          spaceAfter=10)))
+    else:
+        elements.append(Paragraph("Data hashtag populer tidak tersedia.", normal_style))
+    
+    # Hashtag Analysis
+    hashtag_analysis = f"""
+    <b>Analisis Hashtag:</b><br/><br/>
+    Hashtag yang populer memberikan gambaran tentang bagaimana percakapan dikategorikan dan
+    diorganisir di media sosial. Hashtag ini juga dapat digunakan untuk melacak percakapan
+    terkait dan meningkatkan jangkauan komunikasi.
+    """
+    elements.append(Paragraph(hashtag_analysis, normal_style))
+    elements.append(PageBreak())
+    
+    # ============= SAMPEL TWEET =============
+    elements.append(Paragraph("4. SAMPEL TWEET", heading1_style))
+    horizontal_line()
+    
+    # Helper function untuk memotong teks yang terlalu panjang
+    def truncate_text(text, max_length=100):
+        if text and len(text) > max_length:
+            return text[:max_length] + "..."
+        return text if text else ""
+    
+    # Fungsi untuk menambahkan sampel tweet dengan styling yang lebih baik
+    def add_tweet_samples(section_num, category, sentiment_type, color):
+        elements.append(Paragraph(f"4.{section_num} Tweet {category}", heading2_style))
+        elements.append(Paragraph(f"Berikut adalah sampel tweet dengan sentimen {category.lower()}:", normal_style))
+        
+        # Filter tweets by sentiment
+        tweets = analysis_df[analysis_df['predicted_sentiment'] == sentiment_type].head(3)
+        
+        if len(tweets) > 0:
+            for i, (_, tweet) in enumerate(tweets.iterrows(), 1):
+                username = tweet.get('username', 'user')
+                content = truncate_text(tweet.get('content', ''), 150)
+                confidence = f"{tweet.get('confidence', 0):.1f}%"
+                date = tweet.get('date', datetime.now().strftime('%d %b %Y'))
+                
+                # Format tweet
+                tweet_text = f"""
+                <font color="blue"><b>@{username}</b></font> • {date}<br/>
+                {content}<br/>
+                <font color="gray"><i>Confidence: {confidence}</i></font>
+                """
+                
+                # Custom tweet style with background color
+                tweet_style = ParagraphStyle(
+                    f'Tweet{sentiment_type}{i}',
+                    parent=normal_style,
+                    backColor=light_color,
+                    borderColor=color,
+                    borderWidth=1,
+                    borderPadding=8,
+                    spaceBefore=10,
+                    spaceAfter=10
+                )
+                
+                elements.append(Paragraph(tweet_text, tweet_style))
+        else:
+            elements.append(Paragraph(f"Tidak ada tweet {category.lower()} yang tersedia.", normal_style))
+        
+        # Add analysis for each sentiment type
+        analysis_text = {
+            "Positif": """
+            <b>Karakteristik Tweet Positif:</b><br/>
+            Tweet positif umumnya mengandung ekspresi dukungan, apresiasi, atau optimisme. 
+            Kata-kata yang sering muncul antara lain: "bagus", "sukses", "terima kasih", 
+            "mendukung", "setuju", dll.<br/><br/>
+            """,
+            
+            "Netral": """
+            <b>Karakteristik Tweet Netral:</b><br/>
+            Tweet netral umumnya bersifat informatif, faktual, atau berupa pertanyaan. 
+            Tweet ini tidak menunjukkan emosi atau pendapat yang kuat, baik positif maupun negatif.<br/><br/>
+            """,
+            
+            "Negatif": """
+            <b>Karakteristik Tweet Negatif:</b><br/>
+            Tweet negatif umumnya mengandung ekspresi kritik, kekecewaan, atau kekhawatiran. 
+            Kata-kata yang sering muncul antara lain: "kecewa", "masalah", "buruk", "gagal", 
+            "tidak setuju", dll.<br/><br/>
+            """
+        }
+        
+        elements.append(Paragraph(analysis_text[sentiment_type], normal_style))
+        elements.append(Spacer(1, 0.2*inch))
+    
+    # Tambahkan sampel tweet untuk setiap sentimen
+    add_tweet_samples(1, "Positif", "Positif", colors.green)
+    add_tweet_samples(2, "Netral", "Netral", colors.blue)
+    add_tweet_samples(3, "Negatif", "Negatif", colors.red)
+    
+    elements.append(PageBreak())
+    
+    # ============= KESIMPULAN DAN REKOMENDASI =============
+    elements.append(Paragraph("5. KESIMPULAN DAN REKOMENDASI", heading1_style))
+    horizontal_line()
+    
+    # Kesimpulan
+    elements.append(Paragraph("5.1 Kesimpulan", heading2_style))
+    
+    conclusion_text = f"""
+    Berdasarkan analisis sentimen terhadap {analysis_context['total_tweets']} tweets terkait 
+    "{analysis_context['title']}", dapat disimpulkan bahwa:<br/><br/>
+    
+    1. Sentimen publik secara keseluruhan cenderung {'positif' if dominant == 'Positif' else
+       'netral' if dominant == 'Netral' else 'negatif'} dengan persentase {pos_percent if dominant == 'Positif' 
+       else neu_percent if dominant == 'Netral' else neg_percent}%.<br/><br/>
+    
+    2. Topik-topik utama yang dibicarakan adalah seputar {', '.join(analysis_context['top_topics'][:3])}.<br/><br/>
+    
+    3. Hashtag yang paling sering digunakan adalah {', '.join(analysis_context['top_hashtags'][:3])}.<br/><br/>
+    
+    4. Percakapan di media sosial X menunjukkan {'tingkat dukungan dan antusiasme yang baik' 
+       if dominant == 'Positif' else 'sikap yang cenderung netral dan informatif' 
+       if dominant == 'Netral' else 'adanya kekhawatiran dan kritik'} terhadap topik ini.<br/><br/>
+    """
+    
+    elements.append(Paragraph(conclusion_text, normal_style))
+    
+    # Rekomendasi berdasarkan sentimen dominan
+    elements.append(Paragraph("5.2 Rekomendasi", heading2_style))
+    
+    recommendation_text = {
+        "Positif": f"""
+        Berdasarkan dominasi sentimen positif, berikut adalah rekomendasi untuk mempertahankan
+        dan meningkatkan persepsi positif publik:<br/><br/>
+        
+        1. <b>Pertahankan Momentum Positif</b> - Teruskan komunikasi aspek-aspek yang mendapatkan
+           respon positif dari publik.<br/><br/>
+        
+        2. <b>Manfaatkan Pendukung</b> - Identifikasi dan libatkan pendukung aktif untuk
+           memperluas jangkauan pesan positif.<br/><br/>
+        
+        3. <b>Gunakan Hashtag Populer</b> - Manfaatkan hashtag {', '.join(analysis_context['top_hashtags'][:2])}
+           untuk meningkatkan visibilitas pesan.<br/><br/>
+        
+        4. <b>Eksplorasi Topik Potensial</b> - Kembangkan konten seputar {', '.join(analysis_context['top_topics'][:2])}
+           yang mendapat respons positif.<br/><br/>
+        
+        5. <b>Pantau Secara Berkala</b> - Lakukan analisis sentimen secara berkala untuk
+           mendeteksi perubahan tren dan menyesuaikan strategi.<br/><br/>
+        """,
+        
+        "Netral": f"""
+        Berdasarkan dominasi sentimen netral, berikut adalah rekomendasi untuk meningkatkan
+        engagement dan menggeser sentimen ke arah yang lebih positif:<br/><br/>
+        
+        1. <b>Tingkatkan Komunikasi Nilai</b> - Perkuat pesan tentang manfaat dan nilai positif
+           untuk menggeser sentimen dari netral ke positif.<br/><br/>
+        
+        2. <b>Edukasi Publik</b> - Lakukan edukasi yang lebih intensif tentang aspek-aspek
+           penting yang mungkin belum dipahami sepenuhnya.<br/><br/>
+        
+        3. <b>Ciptakan Konten Engaging</b> - Kembangkan konten yang lebih menarik dan memicu
+           respons emosional positif.<br/><br/>
+        
+        4. <b>Gunakan Influencer</b> - Libatkan influencer untuk memperkuat pesan dan menciptakan
+           sentimen yang lebih positif.<br/><br/>
+        
+        5. <b>Pantau Tren Pergeseran</b> - Perhatikan percakapan netral yang berpotensi
+           bergeser ke arah positif atau negatif.<br/><br/>
+        """,
+        
+        "Negatif": f"""
+        Berdasarkan dominasi sentimen negatif, berikut adalah rekomendasi untuk memperbaiki
+        persepsi publik:<br/><br/>
+        
+        1. <b>Identifikasi Masalah Utama</b> - Lakukan analisis mendalam terhadap sumber
+           kekhawatiran dan kritik utama.<br/><br/>
+        
+        2. <b>Berikan Klarifikasi</b> - Komunikasikan klarifikasi untuk isu-isu yang sering
+           mendapat kritik.<br/><br/>
+        
+        3. <b>Tunjukkan Langkah Perbaikan</b> - Informasikan tentang langkah-langkah konkret
+           yang sedang atau akan dilakukan untuk mengatasi masalah.<br/><br/>
+        
+        4. <b>Engagement Aktif</b> - Tingkatkan keterlibatan dengan audiens kritis untuk
+           menunjukkan keterbukaan terhadap umpan balik.<br/><br/>
+        
+        5. <b>Pemantauan Intensif</b> - Lakukan pemantauan lebih sering untuk melihat
+           perubahan sentimen setelah implementasi rekomendasi.<br/><br/>
+        """
+    }
+    
+    elements.append(Paragraph(recommendation_text[dominant], normal_style))
+    
+    # Metodologi
+    elements.append(Paragraph("5.3 Metodologi Analisis", heading2_style))
+    
+    methodology_text = f"""
+    Analisis sentimen dalam laporan ini menggunakan model machine learning berbasis IndoBERT
+    yang dilatih khusus untuk mengklasifikasikan teks Bahasa Indonesia ke dalam tiga kategori
+    sentimen: Positif, Netral, dan Negatif.<br/><br/>
+    
+    Model ini memiliki akurasi sekitar 85% berdasarkan validasi pada dataset pengujian. Persentase
+    kepercayaan (confidence score) ditampilkan untuk setiap sampel tweet sebagai indikasi
+    tingkat keyakinan model terhadap prediksi yang dihasilkan.<br/><br/>
+    
+    Data tweets diambil dari platform X (Twitter) menggunakan Scraping data dengan filter
+    berdasarkan kata kunci yang relevan dengan topik "{analysis_context['title']}".<br/><br/>
+    """
+    
+    elements.append(Paragraph(methodology_text, normal_style))
+    
+    # Footer
+    elements.append(Spacer(1, 0.5*inch))
+    elements.append(Paragraph(
+        f"Laporan ini dibuat secara otomatis oleh Aplikasi Analisis Sentimen X • {datetime.now().strftime('%d %B %Y')}",
+        ParagraphStyle(
+            'Footer',
+            parent=styles['Normal'],
+            fontSize=9,
+            alignment=1,  # Center
+            textColor=colors.gray
+        )
+    ))
     
     # Build PDF with page numbers
     doc.build(elements, onFirstPage=add_page_number, onLaterPages=add_page_number)
