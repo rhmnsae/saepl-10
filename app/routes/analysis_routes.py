@@ -1,10 +1,13 @@
 import os
 import pandas as pd
-from flask import Blueprint, current_app, flash, redirect, request, jsonify, send_file, session, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, jsonify, send_file, session, url_for
+from flask_login import login_required, current_user  # Impor fitur login
 from werkzeug.utils import secure_filename
 from app.services.sentiment_analysis import predict_sentiments, extract_hashtags, extract_topics
 from app.services.sentiment_analysis import analyze_sentiment_per_hashtag, get_top_users, extract_words_by_sentiment
 from app.services.visualization import create_sentiment_plot, create_improved_word_cloud
+from app.models.user import AnalysisHistory  # Impor model untuk riwayat analisis
+from app.database import db  # Impor database
 from datetime import datetime
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
@@ -27,6 +30,7 @@ def clean_for_json(value):
     return value
 
 @analysis_bp.route('/upload', methods=['POST'])
+@login_required
 def upload_file():
     # Verifikasi model terlatih ada
     if not os.path.exists(current_app.config['MODEL_PATH']):
@@ -166,6 +170,26 @@ def upload_file():
                 'top_topics': [t['topic'] for t in topics[:5]]
             }
             
+            # Simpan riwayat analisis ke database
+            analysis_history = AnalysisHistory(
+                user_id=current_user.id,  # ID pengguna yang sedang login
+                title=title,
+                description=description,
+                file_path=file_path,
+                result_path=output_file,
+                total_tweets=total_tweets,
+                positive_count=positive_count,
+                neutral_count=neutral_count,
+                negative_count=negative_count
+            )
+            
+            # Tambahkan ke database dan commit
+            db.session.add(analysis_history)
+            db.session.commit()
+            
+            # Tambahkan ID analisis ke session
+            session['analysis_id'] = analysis_history.id
+            
             return jsonify(analysis_results)
         except Exception as e:
             import traceback
@@ -173,6 +197,7 @@ def upload_file():
             return jsonify({'error': str(e)})
 
 @analysis_bp.route('/filter_tweets', methods=['POST'])
+@login_required
 def filter_tweets():
     data = request.json
     sentiment_filter = data.get('sentiment', 'all')
@@ -213,6 +238,7 @@ def filter_tweets():
     return jsonify({'tweets': tweets_for_display})
 
 @analysis_bp.route('/download_report', methods=['GET'])
+@login_required
 def download_report():
     # Cek apakah ada data analisis di session
     if 'analysis_file' not in session or 'analysis_context' not in session:
@@ -851,6 +877,14 @@ def download_report():
     doc.build(elements, onFirstPage=add_page_number, onLaterPages=add_page_number)
     buffer.seek(0)
     
+    # Catat waktu download dalam database jika ada analysis_id
+    if 'analysis_id' in session:
+        analysis_id = session.get('analysis_id')
+        analysis = AnalysisHistory.query.get(analysis_id)
+        if analysis:
+            analysis.last_downloaded = datetime.utcnow()
+            db.session.commit()
+    
     # Return file
     return send_file(
         buffer,
@@ -858,3 +892,71 @@ def download_report():
         download_name=f"Laporan_Analisis_Sentimen_{analysis_context['title'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf",
         mimetype='application/pdf'
     )
+
+# Tambahkan route baru untuk melihat riwayat analisis pengguna
+@analysis_bp.route('/history', methods=['GET'])
+@login_required
+def analysis_history():
+    # Ambil semua riwayat analisis pengguna yang sedang login
+    history = AnalysisHistory.query.filter_by(user_id=current_user.id).order_by(AnalysisHistory.created_at.desc()).all()
+    
+    return render_template('analysis/history.html', history=history)
+
+# Tambahkan route untuk melihat hasil analisis yang lalu
+@analysis_bp.route('/view/<int:analysis_id>', methods=['GET'])
+@login_required
+def view_analysis(analysis_id):
+    # Cek apakah analisis milik pengguna yang sedang login
+    analysis = AnalysisHistory.query.filter_by(id=analysis_id, user_id=current_user.id).first_or_404()
+    
+    # Jika result_path tidak ada atau file tidak ditemukan
+    if not analysis.result_path or not os.path.exists(analysis.result_path):
+        flash("File hasil analisis tidak ditemukan.", "error")
+        return redirect(url_for('analysis.analysis_history'))
+    
+    # Load analisis dari file ke session
+    result_df = pd.read_csv(analysis.result_path)
+    
+    # Simpan ke session
+    session['analysis_file'] = analysis.result_path
+    session['analysis_id'] = analysis.id
+    
+    # Simpan konteks analisis ke session
+    session['analysis_context'] = {
+        'title': analysis.title,
+        'description': analysis.description,
+        'total_tweets': analysis.total_tweets,
+        'positive_count': analysis.positive_count,
+        'neutral_count': analysis.neutral_count,
+        'negative_count': analysis.negative_count,
+        'positive_percent': round((analysis.positive_count / analysis.total_tweets * 100), 1) if analysis.total_tweets > 0 else 0,
+        'neutral_percent': round((analysis.neutral_count / analysis.total_tweets * 100), 1) if analysis.total_tweets > 0 else 0,
+        'negative_percent': round((analysis.negative_count / analysis.total_tweets * 100), 1) if analysis.total_tweets > 0 else 0,
+        'top_hashtags': [], # Akan diisi nanti jika diperlukan
+        'top_topics': []    # Akan diisi nanti jika diperlukan
+    }
+    
+    # Redirect ke halaman hasil
+    flash(f"Menampilkan hasil analisis: {analysis.title}", "info")
+    return redirect(url_for('main.index', _anchor='results'))
+
+# Tambahkan route untuk menghapus riwayat analisis
+@analysis_bp.route('/delete/<int:analysis_id>', methods=['POST'])
+@login_required
+def delete_analysis(analysis_id):
+    # Cek apakah analisis milik pengguna yang sedang login
+    analysis = AnalysisHistory.query.filter_by(id=analysis_id, user_id=current_user.id).first_or_404()
+    
+    # Hapus file jika ada
+    if analysis.file_path and os.path.exists(analysis.file_path):
+        os.remove(analysis.file_path)
+    
+    if analysis.result_path and os.path.exists(analysis.result_path):
+        os.remove(analysis.result_path)
+    
+    # Hapus dari database
+    db.session.delete(analysis)
+    db.session.commit()
+    
+    flash("Analisis berhasil dihapus.", "success")
+    return redirect(url_for('analysis.analysis_history'))
