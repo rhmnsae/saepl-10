@@ -20,6 +20,12 @@ from reportlab.graphics.charts.barcharts import VerticalBarChart
 
 analysis_bp = Blueprint('analysis', __name__)
 
+def clean_for_json(value):
+    """Convert NaN/None values to empty string for JSON serialization"""
+    if pd.isna(value) or value is None:
+        return ""
+    return value
+
 @analysis_bp.route('/upload', methods=['POST'])
 def upload_file():
     # Verifikasi model terlatih ada
@@ -125,20 +131,20 @@ def upload_file():
             tweets_for_display = []
             for _, row in result_df.iterrows():
                 tweet = {
-                    'username': row.get('username', ''),
-                    'content': row.get('content', ''),
-                    'date': row.get('date', ''),
-                    'likes': row.get('likes', 0),
-                    'retweets': row.get('retweets', 0),
-                    'replies': row.get('replies', 0),
-                    'predicted_sentiment': row.get('predicted_sentiment', ''),
-                    'confidence': row.get('confidence', 0)
+                    'username': clean_for_json(row.get('username', '')),
+                    'content': clean_for_json(row.get('content', '')),
+                    'date': clean_for_json(row.get('date', '')),
+                    'likes': clean_for_json(row.get('likes', 0)),
+                    'retweets': clean_for_json(row.get('retweets', 0)),
+                    'replies': clean_for_json(row.get('replies', 0)),
+                    'predicted_sentiment': clean_for_json(row.get('predicted_sentiment', '')),
+                    'confidence': clean_for_json(row.get('confidence', 0))
                 }
                 
                 # Add optional fields if they exist
                 for field in ['tweet_url', 'image_url', 'lang', 'location']:
                     if field in row and not pd.isna(row[field]):
-                        tweet[field] = row[field]
+                        tweet[field] = clean_for_json(row[field])
                 
                 tweets_for_display.append(tweet)
             
@@ -187,23 +193,23 @@ def filter_tweets():
     tweets_for_display = []
     for _, row in result_df.iterrows():
         tweet = {
-            'username': row.get('username', ''),
-            'content': row.get('content', ''),
-            'date': row.get('date', ''),
-            'likes': row.get('likes', 0),
-            'retweets': row.get('retweets', 0),
-            'replies': row.get('replies', 0),
-            'predicted_sentiment': row.get('predicted_sentiment', ''),
-            'confidence': row.get('confidence', 0)
+            'username': clean_for_json(row.get('username', '')),
+            'content': clean_for_json(row.get('content', '')),
+            'date': clean_for_json(row.get('date', '')),
+            'likes': clean_for_json(row.get('likes', 0)),
+            'retweets': clean_for_json(row.get('retweets', 0)),
+            'replies': clean_for_json(row.get('replies', 0)),
+            'predicted_sentiment': clean_for_json(row.get('predicted_sentiment', '')),
+            'confidence': clean_for_json(row.get('confidence', 0))
         }
         
         # Add optional fields if they exist
         for field in ['tweet_url', 'image_url', 'lang', 'location']:
             if field in row and not pd.isna(row[field]):
-                tweet[field] = row[field]
+                tweet[field] = clean_for_json(row[field])
         
         tweets_for_display.append(tweet)
-    
+        
     return jsonify({'tweets': tweets_for_display})
 
 @analysis_bp.route('/download_report', methods=['GET'])
